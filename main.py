@@ -1,19 +1,16 @@
-import time
-
 import cv2
 import numpy as np
 import pyautogui
 import pyperclip as pc
 
 
-class QuizletScamer:
+class QuizletScammer:
     console_image = cv2.imread("images/quizlet-console.png")
     tile_image = cv2.imread("images/quizlet-tile.png")
     start_image = cv2.imread("images/quizlet-start.png")
+    empty_image = cv2.imread("images/quizlet-empty.png")
 
-    timeOut = 2000
-
-    command = r"setTimeout(() => { let tiles = ''; let classes = document.getElementsByClassName('MatchModeQuestionGridTile-text'); for (const c of classes) { let tile = c.ariaLabel; tiles += tile + ';;';} navigator.clipboard.writeText(tiles);}, 120)"
+    command = r"setTimeout(() => { let tiles = ''; let classes = document.getElementsByClassName('MatchModeQuestionGridTile-text'); for (const c of classes) { let tile = c.ariaLabel; tiles += tile + ';;';} navigator.clipboard.writeText(tiles);}, 150)"
 
     words = {}
     tiles = []
@@ -22,7 +19,8 @@ class QuizletScamer:
     console = ()
     empty = ()
 
-    def __init__(self, words: dict):
+    def __init__(self, words: dict, old_coords: list = []):
+        self.tile_coords = old_coords
         ks = list(words.keys())
 
         for i in range(len(words)):
@@ -40,40 +38,42 @@ class QuizletScamer:
 
     def start(self):
         ss = self.screen_shot()
+        ss3 = np.copy(ss)
 
         method = cv2.TM_SQDIFF_NORMED
         result = cv2.matchTemplate(self.start_image, ss, method)
         mn, _, mn_loc, _ = cv2.minMaxLoc(result)
         c_x, c_y = mn_loc
-        c_x += self.console_image.shape[1]
-        c_y += self.console_image.shape[0] / 2
+        c_x += self.start_image.shape[1] / 2
+        c_y += self.start_image.shape[0] / 2
         pyautogui.click(c_x, c_y)
+        self.empty = (c_x, c_y - 200)
 
-        result = cv2.matchTemplate(self.start_image, ss, method)
-        mn, _, mn_loc, _ = cv2.minMaxLoc(result)
-        c_x, c_y = mn_loc
-        c_x += self.console_image.shape[1]
-        c_y += self.console_image.shape[0] / 2
-        self.empty = (c_x, c_y)
+        self.find_console(ss3)
+        self.get_words()
+        pyautogui.position(c_x, c_y)
+        self.find_tiles()
+        if len(self.tile_coords) == 12:
+            self.solve()
+        print(len(self.tile_coords), self.tile_coords)
 
-        self.find(ss)
-        self.get()
-        time.sleep(1)
-        self.find_tiles(ss)
-        self.solve()
-
-    def find_tiles(self, screenshot):
+    def find_tiles(self, screenshot = None):
         # get tiles
-        method = cv2.TM_CCOEFF_NORMED
-        threshold = 0.923
-        result = cv2.matchTemplate(self.tile_image, screenshot, method)
-        (y_coords, x_coords) = np.where(result >= threshold)
-        trows, tcols = self.tile_image.shape[:2]
+        if self.tile_coords == []:
+            if screenshot is None:
+                screenshot = self.screen_shot()
+            method = cv2.TM_CCOEFF_NORMED
+            threshold = 0.932
+            result = cv2.matchTemplate(self.tile_image, screenshot, method)
+            (y_coords, x_coords) = np.where(result >= threshold)
+            print(len(y_coords))
+            print(y_coords, x_coords)
+            trows, tcols = self.tile_image.shape[:2]
 
-        for i in range(len(y_coords)):
-            self.tile_coords.append((x_coords[i] + tcols, y_coords[i] + trows))
+            for i in range(len(y_coords)):
+                self.tile_coords.append((x_coords[i] + tcols, y_coords[i] + trows))
 
-    def find(self, screenshot):
+    def find_console(self, screenshot):
         # get console
         method = cv2.TM_SQDIFF_NORMED
         result = cv2.matchTemplate(self.console_image, screenshot, method)
@@ -83,7 +83,7 @@ class QuizletScamer:
         c_y += self.console_image.shape[0] / 2
         self.console = (c_x, c_y)
 
-    def get(self):
+    def get_words(self):
         # execute command
         pyautogui.click(self.console[0], self.console[1])
         pc.copy(self.command)
@@ -96,76 +96,52 @@ class QuizletScamer:
 
     def solve(self):
         # solve
-        for i in range(len(self.words)):
-            k = list(self.words.keys())[i]
-            v = list(self.words.values())[i]
+        cash = []
+        for i in range(len(self.tiles)):
+            word = self.tiles[i]
+            if word not in cash:
+                other = self.words[word]
+                other_pos = self.tiles.index(other)
 
-            if k in self.tiles:
-                pos = self.tiles.index(v)
-                pyautogui.click(self.tile_coords[pos][0], self.tile_coords[pos][1])
+                print(word, other, other_pos)
+
+                cash.append(word)
+                cash.append(other)
+
                 pyautogui.click(self.tile_coords[i][0], self.tile_coords[i][1])
+                pyautogui.click(self.tile_coords[other_pos][0], self.tile_coords[other_pos][1])
 
 
 if __name__ == '__main__':
     words = {
-        "la tête": "der Kopf",
-        "le cou": "der Hals",
-        "le bras": "der Arm",
-        "l'épaule (f)": "die Schulter",
-        "le coude": "der Ellbogen",
-        "la main": "die Hand",
-        "le doigt": "der Finger",
-        "le dos": "der Rücken",
-        "la jambe": "das Bein",
-        "le genou": "das Knie",
-        "le pied": "der Fuss",
-        "croiser": "kreuzen",
-        "écarter": "spreizen, ausbreiten",
-        "plier": "beugen, falten",
-        "tendre": "strecken",
-        "baisser": "senken",
-        "lâcher": "loslassen",
-        "arrêter": "aufhören",
-        "recommencer": "wieder beginnen",
-        "avancer": "nach vorne strecken",
-        "reculer": "zurückziehen, zurückgehen",
-        "danser": "tanzen",
-        "se lever": "sich setzen",
-        "Lève-toi.": "Steh auf.",
-        "Levez-vous.": "Steht auf.",
-        "sich setzen": "s'asseoir",
-        "Assieds-toi.": "Setz dich.",
-        "Asseyez-vous.": "Setzt euch.",
-        "tenir": "halten",
-        "Tiens...": "Halte...",
-        "Tenez...": "Haltet...",
-        "la plage": "der Strand",
-        "la pluie": "der Regen",
-        "le vent": "der Wind",
-        "la neige": "der Schnee",
-        "Tu t'en souviens?": "Erinnerst du dich daran?",
-        "J'y pense souvent.": "Ich denke oft daran.",
-        "J'en suis fier/fière.": "Ich bin stolz darauf.",
-        "On en parle.": "Man spricht darüber.",
-        "J'en ai besoin.": "Ich brauche es.",
-        "Elle en profite.": "Sie profitiert davon.",
-        "Je m'en fous.": "Das ist mir egal.",
-        "Je n'en sais rien.": "Ich weiss nichts davon.",
-        "Je n'y peux rien.": "Ich kann nichts dafür.",
-        "On y va?": "Auf geht's!",
-        "J'y vais.": "Ich mache mich auf den Weg.",
-        "Vas-y!": "Los! / Mach schon!",
-        "Allons-y!": "Auf geht's!",
-        "On y est.": "Es ist so weit.",
-        "Nous y sommes.": "Da wären wir.",
-        "Ca y est.": "Es ist so weit.",
-        "Va-t'en!": "Geh weg!",
-        "On s'en va.": "Wir gehen jetzt.",
-        "Le/La ... qui me plaît est...": "..., der mir gefällt, ist...",
-        "Un/Une... qui me fascine est...": "..., der/die mich fasziniert, ist...",
-        "Le/La... que je préfère est...": "..., den/die ich bevorzuge, ist...",
-        "Le/La... que je trouve bien est...": "..., das ich gut finde, ist...",
+        "remporter": "gewinnen, davontragen",
+        "recevoir": "erhalten, bekommen",
+        "se partager": "unter sich aufteilen",
+        "l'argent (m)": "das Geld/das Silber",
+        "l'argent de poche (m)": "das Taschengeld",
+        "la monnaie": "das Kleingeld",
+        "la pièce (de monnaie)": "die Münze",
+        "le billet (de banque)": "die Banknote, der Geldschein",
+        "en or": "aus Gold",
+        "en argent": "aus Silber",
+        "Si j'étais..., je pourrais...": "Wenn ich... wäre, könnte ich...",
+        "Si j'avais..., je ferais...": "Wenn ich... hätte, würde ich... machen.",
+        "Si je pouvais, j'irais...": "Wenn ich könnte, würde ich... gehen.",
+        "dire": "sagen",
+        "ajouter": "anfügen",
+        "raconter": "erzählen",
+        "s'exclamer": "ausrufen",
+        "murmurer": "murmeln",
+        "chuchoter": "flüstern",
+        "Il dit que...": "Er sagt, dass...",
+        "Elle raconte que...": "Sie erzählt, dass...",
+        "Il demande si...": "Er fragt, ob...",
+        "faire tomber": "fallen lassen",
+        "faire faire": "machen lassen",
+        "faire réparer": "reparieren lassen",
     }
 
-    scammer = QuizletScamer(words)
+    old_coords = [(1167, 342), (1364, 342), (1560, 342), (1167, 624), (1364, 624), (1560, 624), (1167, 906), (1364, 906), (1560, 906), (1167, 1189), (1364, 1189), (1560, 1189)]
+
+    scammer = QuizletScammer(words, old_coords)
     scammer.start()
