@@ -141,7 +141,7 @@ if __name__ == '__main__':
         "faire réparer": "reparieren lassen",
     }
 
-    old_coords = [(1167, 342), (1364, 342), (1560, 342), (1167, 624), (1364, 624), (1560, 624), (1167, 906), (1364, 906), (1560, 906), (1167, 1189), (1364, 1189), (1560, 1189)]
+    old_coords = []
 
     scammer = QuizletScammer(words, old_coords)
     scammer.start()
