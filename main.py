@@ -193,10 +193,10 @@ class QuizletMatcher2:
         print(f"tile_coords = {self.tile_coords}")
 
     def run(self):
-        print("Starting..")
-        time.sleep(5)
+        print("Please hover over the start button and press the left shift button")
+        keyboard.wait('left shift')
         self.empty_pos = pyautogui.position()
-        print("Started")
+        print("Setting up")
 
         # run code
         self.get_console_pos()
@@ -208,7 +208,8 @@ class QuizletMatcher2:
 
         # ready
         time.sleep(self.timeout / 1000)
-        print("you can start now")
+        print("Setup complete")
+        print("You can now press the start button")
 
         while pyperclip.paste() == self.console_code:
             pass
@@ -240,32 +241,26 @@ class QuizletMatcher2:
                 exit()
 
 
+def get_words_from_file(path: str, between_two_words: str = ",", between_the_rows: str = ";"):
+    f = open(path, encoding='utf-8')
+    matches = f.read().split(between_the_rows)
+    f.close()
+
+    d = {}
+    for match in matches:
+        if match != '':
+            words = match.split(between_two_words)
+            w1 = words[0]
+            w2 = words[1]
+
+            d.update({w1: w2})
+
+    return d
+
+
 if __name__ == '__main__':
-    words = {
-        "Auseinandersetzung, Streit": "argument",
-        "Kreuzfahrt, Schiffsreise": "cruise",
-        "stören": "disturb",
-        "Taucher/Taucherin": "diver",
-        "sich (zer)streiten": "fall out",
-        "Erwärmung der Erdatmosphäre": "global warming",
-        "jedoch": "however",
-        "glücklicherweise": "luckily",
-        "Verschmutzung": "pollution",
-        "leider": "sadly",
-        "leiden (unter)": "suffer (from)",
-        "deshalb, darum": "that's why",
-        "bedrohen, drohen": "threaten",
-        "unglaublich": "unbelievable",
-        "Menge": "amount",
-        "meiden, vermeiden": "avoid",
-        "konsumieren, zu sich nehmen": "consume",
-        "zurzeit, momentan": "currently",
-        "schaden, Schaden zufügen": "harm",
-        "ignorieren, nicht beachten": "ignore",
-        "Überfischen": "overfishing",
-        "Politiker/Politikerin": "politician",
-        "Meeresfrüchte": "seafood"
-    }
+    words = get_words_from_file("words.txt", between_two_words=",", between_the_rows=";")
+    print(words)
 
     tile_coords = [(1106, 448), (1429, 454), (1712, 448), (1113, 730), (1429, 729), (1724, 730), (1118, 1011),
                    (1441, 1008), (1719, 1011), (1119, 1292), (1414, 1301), (1724, 1293)]
