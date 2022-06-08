@@ -175,7 +175,7 @@ class QuizletMatcher2:
         if pos is not None:
             self.console_pos = (pos.left + pos.width, pos.top + (pos.height / 2))
         else:
-            exit("Waring: Console pos not found")
+            exit("Error: Console pos not found")
 
     def calibrate(self):
         print("(Positions from top left to bottom right)")
