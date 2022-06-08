@@ -1,6 +1,10 @@
+import time
+
 import cv2
+import keyboard
 import numpy as np
 import pyautogui
+import pyperclip
 import pyperclip as pc
 
 
@@ -133,69 +137,138 @@ class QuizletScammer:
                 break
 
 
+class QuizletMatcher2:
+    words = {}
+
+    console_image_path = r"images/console.png"
+
+    timeout = 500
+    console_code = ""
+    console_pos = ()
+    empty_pos = ()
+
+    new_words = []
+    clipboard = ""
+
+    tile_coords = []
+
+    def __init__(self, words: dict, code_file: str, tile_coords: list[tuple[int, int]] = None, cps: float = 0.04):
+        if cps < 0.04:
+            print("Warning: The cps is probably to small. Quizlet only saves when the time is >= 0.5 seconds.")
+
+        if not tile_coords:
+            exit("Error: No tiles_coords found. You should calibrate first and copy the tile coords.")
+
+        self.tile_coords = tile_coords
+        pyautogui.PAUSE = cps
+
+        for k, v in words.items():
+            self.words.update({k: v, v: k})
+
+        file = open(code_file, 'r')
+        self.console_code = file.read()
+        self.console_code = self.console_code.replace("$timeout$", str(self.timeout))
+        file.close()
+
+    def get_console_pos(self):
+        pos = pyautogui.locateOnScreen(self.console_image_path)
+        if pos is not None:
+            self.console_pos = (pos.left + pos.width, pos.top + (pos.height / 2))
+        else:
+            print("Waring: Console pos not found")
+
+    def calibrate(self):
+        print("(Positions from top left to bottom right)")
+        print("(press left shift to save position)")
+        for i in range(12):
+            print(f"Hover over tile {i + 1}")
+
+            keyboard.wait('left shift')
+            p = pyautogui.position()
+            self.tile_coords.append((p[0], p[1]))
+
+            while keyboard.press('left shift'):
+                pass
+
+        print(f"tile_coords = {self.tile_coords}")
+
+    def run(self):
+        print("Starting..")
+        time.sleep(5)
+        self.empty_pos = pyautogui.position()
+        print("Started")
+
+        # run code
+        self.get_console_pos()
+        pyautogui.click(self.console_pos[0], self.console_pos[1])
+        pyperclip.copy(self.console_code)
+        pyautogui.hotkey('ctrl', 'v')
+        pyautogui.press('enter')
+        pyautogui.click(self.empty_pos[0], self.empty_pos[1])
+
+        # ready
+        time.sleep(self.timeout / 1000)
+        print("you can start now")
+
+        while pyperclip.paste() == self.console_code:
+            pass
+
+        print("got it")
+        self.new_words = str(pyperclip.paste()).split(";;")
+        self.solve()
+
+    def solve(self):
+        cash = ['']
+        for i in range(len(self.new_words)):
+            word = self.new_words[i]
+            if word not in cash:
+                other = self.words[word]
+
+                cash.append(word)
+                cash.append(other)
+
+                i1 = i
+                i2 = self.new_words.index(other)
+
+                p1 = self.tile_coords[i1]
+                p2 = self.tile_coords[i2]
+
+                pyautogui.click(p1[0], p1[1])
+                pyautogui.click(p2[0], p2[1])
+
+            if len(cash) >= 13:
+                exit()
+
+
 if __name__ == '__main__':
     words = {
-        "la tête": "der Kopf",
-        "le cou": "der Hals",
-        "le bras": "der Arm",
-        "l'épaule (f)": "die Schulter",
-        "le coude": "der Ellbogen",
-        "la main": "die Hand",
-        "le doigt": "der Finger",
-        "le dos": "der Rücken",
-        "la jambe": "das Bein",
-        "le genou": "das Knie",
-        "le pied": "der Fuss",
-        "croiser": "kreuzen",
-        "écarter": "spreizen, ausbreiten",
-        "plier": "beugen, falten",
-        "tendre": "strecken",
-        "baisser": "senken",
-        "lâcher": "loslassen",
-        "arrêter": "aufhören",
-        "recommencer": "wieder beginnen",
-        "avancer": "nach vorne strecken",
-        "reculer": "zurückziehen, zurückgehen",
-        "danser": "tanzen",
-        "se lever": "sich setzen",
-        "Lève-toi.": "Steh auf.",
-        "Levez-vous.": "Steht auf.",
-        "sich setzen": "s'asseoir",
-        "Assieds-toi.": "Setz dich.",
-        "Asseyez-vous.": "Setzt euch.",
-        "tenir": "halten",
-        "Tiens...": "Halte...",
-        "Tenez...": "Haltet...",
-        "la plage": "der Strand",
-        "la pluie": "der Regen",
-        "le vent": "der Wind",
-        "la neige": "der Schnee",
-        "Tu t'en souviens?": "Erinnerst du dich daran?",
-        "J'y pense souvent.": "Ich denke oft daran.",
-        "J'en suis fier/fière.": "Ich bin stolz darauf.",
-        "On en parle.": "Man spricht darüber.",
-        "J'en ai besoin.": "Ich brauche es.",
-        "Elle en profite.": "Sie profitiert davon.",
-        "Je m'en fous.": "Das ist mir egal.",
-        "Je n'en sais rien.": "Ich weiss nichts davon.",
-        "Je n'y peux rien.": "Ich kann nichts dafür.",
-        "On y va?": "Auf geht's!",
-        "J'y vais.": "Ich mache mich auf den Weg.",
-        "Vas-y!": "Los! / Mach schon!",
-        "Allons-y!": "Auf geht's!",
-        "On y est.": "Es ist so weit.",
-        "Nous y sommes.": "Da wären wir.",
-        "Ca y est.": "Es ist so weit.",
-        "Va-t'en!": "Geh weg!",
-        "On s'en va.": "Wir gehen jetzt.",
-        "Le/La ... qui me plaît est...": "..., der mir gefällt, ist...",
-        "Un/Une... qui me fascine est...": "..., der/die mich fasziniert, ist...",
-        "Le/La... que je préfère est...": "..., den/die ich bevorzuge, ist...",
-        "Le/La... que je trouve bien est...": "..., das ich gut finde, ist...",
+        "Auseinandersetzung, Streit": "argument",
+        "Kreuzfahrt, Schiffsreise": "cruise",
+        "stören": "disturb",
+        "Taucher/Taucherin": "diver",
+        "sich (zer)streiten": "fall out",
+        "Erwärmung der Erdatmosphäre": "global warming",
+        "jedoch": "however",
+        "glücklicherweise": "luckily",
+        "Verschmutzung": "pollution",
+        "leider": "sadly",
+        "leiden (unter)": "suffer (from)",
+        "deshalb, darum": "that's why",
+        "bedrohen, drohen": "threaten",
+        "unglaublich": "unbelievable",
+        "Menge": "amount",
+        "meiden, vermeiden": "avoid",
+        "konsumieren, zu sich nehmen": "consume",
+        "zurzeit, momentan": "currently",
+        "schaden, Schaden zufügen": "harm",
+        "ignorieren, nicht beachten": "ignore",
+        "Überfischen": "overfishing",
+        "Politiker/Politikerin": "politician",
+        "Meeresfrüchte": "seafood"
     }
 
-    old_coords = [(281, 218), (597, 218), (913, 218), (281, 415), (597, 415), (913, 415), (281, 613), (597, 613),
-                  (913, 613), (281, 810), (597, 810), (913, 810)]
+    tile_coords = [(1106, 448), (1429, 454), (1712, 448), (1113, 730), (1429, 729), (1724, 730), (1118, 1011),
+                   (1441, 1008), (1719, 1011), (1119, 1292), (1414, 1301), (1724, 1293)]
 
-    scammer = QuizletScammer(words, old_coords, 115)
-    scammer.start()
+    matcher = QuizletMatcher2(words, "matcher_code.js", tile_coords, 0.04)
+    matcher.run()
